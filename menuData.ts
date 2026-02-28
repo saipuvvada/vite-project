@@ -12,37 +12,63 @@ export async function loadMenuData(): Promise<MenuRow[]> {
   const text = await res.text();
   const rows = parseCSV(text);
 
-  return rows.slice(1).map(r => ({
-    restaurant: r[0]?.trim(),
-    item: r[1]?.trim(),
-    category: r[2]?.trim(),
-    price: Number(r[3]) || 0,
-    timing: r[4]?.trim(),
-    phone: r[5]?.trim(),
-  })).filter(r => r.restaurant && r.item);
+  return rows
+    .slice(1)
+    .map((r) => ({
+      restaurant: r[0]?.trim(),
+      item: r[1]?.trim(),
+      category: r[2]?.trim(),
+      price: Number(r[3]) || 0,
+      timing: r[4]?.trim(),
+      phone: r[5]?.trim(),
+    }))
+    .filter((r) => r.restaurant && r.item);
 }
 
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
-  let row: string[] = [], cell = "", inQuotes = false;
+  let row: string[] = [],
+    cell = "",
+    inQuotes = false;
+
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
-    if (c === '"') { inQuotes = !inQuotes; continue; }
-    if (c === "," && !inQuotes) { row.push(cell); cell = ""; continue; }
+
+    if (c === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (c === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
     if ((c === "\n" || c === "\r") && !inQuotes) {
-      if (cell || row.length) { row.push(cell); rows.push(row); }
-      row = []; cell = ""; continue;
+      if (cell || row.length) {
+        row.push(cell);
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+      continue;
     }
     cell += c;
   }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
+
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
   return rows;
 }
 
 export function getRestaurants(rows: MenuRow[]) {
   const map = new Map<string, MenuRow>();
-  rows.forEach(r => { if (!map.has(r.restaurant)) map.set(r.restaurant, r); });
-  return Array.from(map.values()).map(r => ({
+  rows.forEach((r) => {
+    if (!map.has(r.restaurant)) map.set(r.restaurant, r);
+  });
+
+  return Array.from(map.values()).map((r) => ({
     id: slugify(r.restaurant),
     name: r.restaurant,
     timing: r.timing,
@@ -52,7 +78,7 @@ export function getRestaurants(rows: MenuRow[]) {
 
 export function getMenuByRestaurant(rows: MenuRow[]) {
   const grouped: Record<string, MenuRow[]> = {};
-  rows.forEach(r => {
+  rows.forEach((r) => {
     const id = slugify(r.restaurant);
     if (!grouped[id]) grouped[id] = [];
     grouped[id].push(r);
@@ -60,6 +86,34 @@ export function getMenuByRestaurant(rows: MenuRow[]) {
   return grouped;
 }
 
+/**
+ * ✅ TIFFINS HELPERS
+ * Put tiffin items in menu.csv with restaurant column as: "Tiffins" (or "Tiffin")
+ * Example:
+ * Tiffins,Idly,Breakfast,40,7:00 AM - 11:00 AM,8639186035
+ */
+
+export function getTiffinRows(rows: MenuRow[]) {
+  return rows.filter((r) => {
+    const rest = (r.restaurant || "").trim().toLowerCase();
+    return rest === "tiffins" || rest === "tiffin";
+  });
+}
+
+export function getTiffinMeta(rows: MenuRow[]) {
+  const tiffinRows = getTiffinRows(rows);
+  const first = tiffinRows[0];
+
+  return {
+    phone: first?.phone || "",
+    timing: first?.timing || "",
+  };
+}
+
 function slugify(text: string) {
-  return text.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+  return text
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
 }
